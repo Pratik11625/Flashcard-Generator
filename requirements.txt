@@ -1,4 +1,5 @@
 streamlit
+streamlit>=1.25.0
 chromadb
 sentence-transformers
 langchain-groq
