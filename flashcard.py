@@ -34,23 +34,39 @@ if "time_limit" not in st.session_state:
 
 # --------------------------------------------------
 # Sidebar: API Key
-# # --------------------------------------------------
+# # # --------------------------------------------------
 with st.sidebar:
-    st.title("⚙️ Settings")
+    st.subheader("🔐 API Key")
+
+    GROQ_API_KEY = st.text_input(
+        "Enter Groq API Key",
+        type="password",
+        placeholder="gsk_..."
+    )
+
+    if GROQ_API_KEY:
+        st.success("API Key added")
+    else:
+        st.warning("Please enter your API key")
+
+# with st.sidebar:
+#     st.title("⚙️ Settings")
 
     # use_env_key = st.toggle("Use System API Key")
-    use_env_key = True
+    # use_env_key = 
 
 
-    if use_env_key:
-        GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-        if GROQ_API_KEY:
-            st.success("✅ API Key loaded from environment")
-        else:
-            st.error("❌ GROQ_API_KEY not found in .env")
-            GROQ_API_KEY = None
-    else:
-        GROQ_API_KEY = st.text_input("Enter Groq API Key", type="password")
+    # if use_env_key:
+    #     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    #     if GROQ_API_KEY:
+    #         st.success("✅ API Key loaded from environment")
+    #     else:
+    #         st.error("❌ GROQ_API_KEY not found in .env")
+    #         GROQ_API_KEY = None
+    # else:
+    #     GROQ_API_KEY = st.text_input("Enter Groq API Key", type="password")
+        
+        # GROQ_API_KEY = st.text_input("Enter Groq API Key", type="password")
 
 # --------------------------------------------------
 # Load Data helpers
