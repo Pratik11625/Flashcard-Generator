@@ -1,0 +1,10 @@
+streamlit
+chromadb
+sentence-transformers
+langchain-groq
+langchain-core
+python-dotenv
+pandas
+requests
+pypdf
+

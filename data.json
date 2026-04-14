@@ -1,0 +1,74 @@
+[
+  {
+    "unit": "Unit 1",
+    "topic": "AI",
+    "subtopic": "Definition",
+    "text": "Artificial Intelligence (AI) is the simulation of human intelligence in machines that are programmed to think and learn. AI systems can perform tasks such as visual perception, speech recognition, decision-making, and language translation."
+  },
+  {
+    "unit": "Unit 1",
+    "topic": "AI",
+    "subtopic": "History",
+    "text": "AI began in 1950 when Alan Turing proposed the Turing Test to measure machine intelligence. In 1956, John McCarthy coined the term 'Artificial Intelligence' at the Dartmouth Conference. The field went through AI winters in the 1970s and 1980s due to funding cuts, then resurged with machine learning in the 1990s and deep learning after 2010."
+  },
+  {
+    "unit": "Unit 1",
+    "topic": "AI",
+    "subtopic": "Types of AI",
+    "text": "AI is classified into three types: Narrow AI (Weak AI) which is designed for a specific task like chess or image recognition; General AI (Strong AI) which can perform any intellectual task a human can; and Super AI which surpasses human intelligence. Currently, only Narrow AI exists in practice."
+  },
+  {
+    "unit": "Unit 1",
+    "topic": "Machine Learning",
+    "subtopic": "Definition",
+    "text": "Machine Learning is a subset of AI that enables computers to learn from data without being explicitly programmed. Instead of writing rules manually, the system finds patterns in data and improves its performance over time with experience."
+  },
+  {
+    "unit": "Unit 1",
+    "topic": "Machine Learning",
+    "subtopic": "Supervised Learning",
+    "text": "Supervised Learning uses labeled training data where the correct output is already known. The model learns by comparing its predictions with the correct labels and adjusting itself. Examples include spam detection, image classification, and house price prediction."
+  },
+  {
+    "unit": "Unit 1",
+    "topic": "Machine Learning",
+    "subtopic": "Unsupervised Learning",
+    "text": "Unsupervised Learning finds hidden patterns in unlabeled data. The algorithm groups or clusters data based on similarities without any prior knowledge of categories. Common algorithms include K-Means clustering, PCA (Principal Component Analysis), and autoencoders."
+  },
+  {
+    "unit": "Unit 2",
+    "topic": "Neural Networks",
+    "subtopic": "Definition",
+    "text": "A Neural Network is a computational model inspired by the structure of the human brain. It consists of layers of interconnected nodes (neurons). Each neuron receives input, applies a weight and activation function, and passes the output to the next layer. Neural networks are the foundation of deep learning."
+  },
+  {
+    "unit": "Unit 2",
+    "topic": "Neural Networks",
+    "subtopic": "Activation Functions",
+    "text": "Activation functions decide whether a neuron should be activated. Common ones include: ReLU (Rectified Linear Unit) which outputs max(0, x) and avoids vanishing gradients; Sigmoid which squashes output between 0 and 1, used for binary classification; and Softmax which converts scores into probabilities, used for multi-class classification."
+  },
+  {
+    "unit": "Unit 2",
+    "topic": "Neural Networks",
+    "subtopic": "Backpropagation",
+    "text": "Backpropagation is the algorithm used to train neural networks. It calculates the gradient of the loss function with respect to each weight by applying the chain rule of calculus. The optimizer (e.g., Adam, SGD) then updates the weights in the direction that reduces the loss."
+  },
+  {
+    "unit": "Unit 2",
+    "topic": "Deep Learning",
+    "subtopic": "Definition",
+    "text": "Deep Learning is a subfield of machine learning that uses neural networks with many layers (deep architectures). These deep networks automatically extract hierarchical features from raw data such as pixels, text, or audio without manual feature engineering."
+  },
+  {
+    "unit": "Unit 2",
+    "topic": "Deep Learning",
+    "subtopic": "CNN",
+    "text": "Convolutional Neural Networks (CNNs) are designed for image data. They use convolutional layers to detect spatial features like edges, textures, and shapes. CNNs consist of convolution, pooling, and fully connected layers. They power applications like face recognition, medical imaging, and self-driving cars."
+  },
+  {
+    "unit": "Unit 2",
+    "topic": "Deep Learning",
+    "subtopic": "RNN",
+    "text": "Recurrent Neural Networks (RNNs) are designed for sequential data like text and time series. They have loops that allow information to persist across time steps. Variants like LSTM (Long Short-Term Memory) and GRU solve the vanishing gradient problem and are used in language translation, speech recognition, and text generation."
+  }
+]
