@@ -315,7 +315,7 @@ if "cards" in st.session_state and st.session_state.cards:
     st.progress((idx + 1) / len(cards))
 
 
-    with st.container(border=True):
+    with st.container():
         if not flip:
             c1, c2 = st.columns([1, 4])
 
