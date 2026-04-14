@@ -1,5 +1,5 @@
 streamlit
-streamlit>=1.25.0
+upgrade pip
 streamlit==1.32.0
 chromadb
 sentence-transformers
