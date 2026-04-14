@@ -38,8 +38,8 @@ if "time_limit" not in st.session_state:
 with st.sidebar:
     st.title("⚙️ Settings")
 
-    use_env_key = st.toggle("Use System API Key")
-
+    # use_env_key = st.toggle("Use System API Key")
+    use_env_key = True
 
 
     if use_env_key:
