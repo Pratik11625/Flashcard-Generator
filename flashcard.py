@@ -1,106 +1,43 @@
 import os
 import io
-import sys
 import json
+import time
 import streamlit as st
 from chromadb import Client
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
-from dotenv import load_dotenv
-# import matplotlib.pyplot as plt
-# from langchain_ollama import Ollama
-import requests
-import time
-import pandas as pd
+
+# ── Page Config ───────────────────────────────────────────────────────────────
+st.set_page_config(page_title="Flashcard Generator", page_icon="📚", layout="centered")
+
+# ── Session State Defaults ────────────────────────────────────────────────────
+for key, default in {
+    "start_time"     : time.time(),
+    "cards"          : [],
+    "idx"            : 0,
+    "flip"           : False,
+    "status"         : {},
+    "quiz_completed" : False,
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = default
 
 
-
-load_dotenv()
-
-# --------------------------------------------------
-# Page Config
-# --------------------------------------------------
-st.set_page_config(page_title="Flashcard Generator", page_icon="📚")
-
-# timer
-if "start_time" not in st.session_state:
-    st.session_state.start_time = time.time()
-
-if "time_limit" not in st.session_state:
-    st.session_state.time_limit = 15  # seconds per question
-
-
-# --------------------------------------------------
-# Sidebar: API Key
-# # # --------------------------------------------------
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.subheader("🔐 API Key")
-
-    GROQ_API_KEY = st.text_input(
-        "Enter Groq API Key",
-        type="password",
-        placeholder="gsk_..."
-    )
-
+    st.subheader("🔐 Groq API Key")
+    GROQ_API_KEY = st.text_input("API Key", type="password", placeholder="gsk_...")
     if GROQ_API_KEY:
-        st.success("API Key added")
+        st.success("API Key added ✅")
     else:
-        st.warning("Please enter your API key")
+        st.warning("Enter your Groq API key to continue")
 
-# with st.sidebar:
-#     st.title("⚙️ Settings")
-
-    # use_env_key = st.toggle("Use System API Key")
-    # use_env_key = 
-
-
-    # if use_env_key:
-    #     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-    #     if GROQ_API_KEY:
-    #         st.success("✅ API Key loaded from environment")
-    #     else:
-    #         st.error("❌ GROQ_API_KEY not found in .env")
-    #         GROQ_API_KEY = None
-    # else:
-    #     GROQ_API_KEY = st.text_input("Enter Groq API Key", type="password")
-        
-        # GROQ_API_KEY = st.text_input("Enter Groq API Key", type="password")
-
-# --------------------------------------------------
-# Load Data helpers
-# --------------------------------------------------
-DATA_FILE = "data.json"
-
-@st.cache_data
-def load_data(file_path):
-    with open(file_path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def load_uploaded_data(uploaded_file):
-    uploaded_file.seek(0)
-    raw = uploaded_file.read()
-    if not raw:
-        raise ValueError("Uploaded file is empty.")
-    return json.loads(raw.decode("utf-8"))
-
-def validate_data(data):
-    required = {"unit", "topic", "subtopic", "text"}
-    errors = []
-    for i, entry in enumerate(data):
-        missing = required - set(entry.keys())
-        if missing:
-            errors.append(f"Entry {i+1} missing fields: {missing}")
-    return errors
-
-# --------------------------------------------------
-# Sidebar: File Upload
-# --------------------------------------------------
-st.sidebar.markdown("---")
-st.sidebar.subheader("📂 Upload JSON")
-st.sidebar.markdown("""
-Upload a JSON file structured as:
+    st.divider()
+    st.subheader("📂 Upload JSON Data")
+    st.markdown("""
+Expected format:
 ```json
 [
   {
@@ -112,85 +49,82 @@ Upload a JSON file structured as:
 ]
 ```
 """)
+    uploaded_file = st.file_uploader("Upload data.json", type=["json"])
 
-uploaded_file = st.sidebar.file_uploader("Upload data.json", type=["json"])
 
-# --------------------------------------------------
-# Load Data
-# --------------------------------------------------
-if uploaded_file:
-    try:
-        data = load_uploaded_data(uploaded_file)
-        errs = validate_data(data)
-        if errs:
-            st.sidebar.error("❌ Errors:\n" + "\n".join(errs))
-            st.stop()
-        st.sidebar.success(f"✅ Loaded {len(data)} entries")
-    except Exception as e:
-        st.sidebar.error(f"❌ Could not read file: {e}")
-        st.stop()
-elif os.path.exists(DATA_FILE):
-    try:
-        data = load_data(DATA_FILE)
-    except Exception as e:
-        st.error(f"❌ Could not read data.json: {e}")
-        st.stop()
-else:
-    st.error("⚠️ No data.json found. Place it in the same folder as app.py or upload via sidebar.")
+# ── Data Loading ──────────────────────────────────────────────────────────────
+def load_uploaded_data(f) -> list:
+    f.seek(0)
+    raw = f.read()
+    if not raw:
+        raise ValueError("Uploaded file is empty.")
+    return json.loads(raw.decode("utf-8"))
+
+def validate_data(data: list) -> list[str]:
+    required = {"unit", "topic", "subtopic", "text"}
+    return [
+        f"Entry {i+1} missing: {required - set(entry.keys())}"
+        for i, entry in enumerate(data)
+        if required - set(entry.keys())
+    ]
+
+if not uploaded_file:
+    st.info("👈 Upload a JSON file in the sidebar to get started.")
     st.stop()
 
-# --------------------------------------------------
-# Vector DB
-# --------------------------------------------------
-@st.cache_resource
-def build_vector_store(data_json):
-    data = json.loads(data_json)
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-    client = Client(Settings(anonymized_telemetry=False))
+try:
+    data = load_uploaded_data(uploaded_file)
+    errors = validate_data(data)
+    if errors:
+        st.sidebar.error("❌ Validation errors:\n" + "\n".join(errors))
+        st.stop()
+    st.sidebar.success(f"✅ {len(data)} entries loaded")
+except Exception as e:
+    st.sidebar.error(f"❌ Could not read file: {e}")
+    st.stop()
+
+
+# ── Vector Store ──────────────────────────────────────────────────────────────
+@st.cache_resource(show_spinner="Building knowledge base…")
+def build_vector_store(data_json: str):
+    data       = json.loads(data_json)
+    model      = SentenceTransformer("all-MiniLM-L6-v2")
+    db         = Client(Settings(anonymized_telemetry=False))
 
     try:
-        client.delete_collection("flashcards")
+        db.delete_collection("flashcards")
     except Exception:
         pass
 
-    collection = client.create_collection("flashcards")
-
+    collection = db.create_collection("flashcards")
     texts      = [d["text"] for d in data]
     ids        = [str(i) for i in range(len(data))]
     metadatas  = [{"unit": d["unit"], "topic": d["topic"], "subtopic": d["subtopic"]} for d in data]
     embeddings = model.encode(texts).tolist()
-
     collection.add(documents=texts, embeddings=embeddings, metadatas=metadatas, ids=ids)
     return collection, model
 
-with st.spinner("Building vector DB..."):
-    collection, embed_model = build_vector_store(json.dumps(data))
+collection, embed_model = build_vector_store(json.dumps(data))
 
-# --------------------------------------------------
-# Retrieve
-# --------------------------------------------------
-def retrieve_content(collection, model, query, unit, topic, subtopic):
-    query_embedding = model.encode([query]).tolist()
-    results = collection.query(
-        query_embeddings=query_embedding,
+
+# ── Retrieval ─────────────────────────────────────────────────────────────────
+def retrieve_content(query: str, unit: str, topic: str, subtopic: str) -> str:
+    embedding = embed_model.encode([query]).tolist()
+    results   = collection.query(
+        query_embeddings=embedding,
         n_results=3,
-        where={"$and": [{"unit": unit}, {"topic": topic}, {"subtopic": subtopic}]}
+        where={"$and": [{"unit": unit}, {"topic": topic}, {"subtopic": subtopic}]},
     )
-    docs = results.get("documents", [[]])[0]
-    return " ".join(docs)
+    return " ".join(results.get("documents", [[]])[0])
 
 
-
-
-# --------------------------------------------------
-# LLM (Groq)
-# --------------------------------------------------
-def generate_flashcards(content, api_key):
+# ── LLM ───────────────────────────────────────────────────────────────────────
+def generate_flashcards(content: str, n: int, api_key: str) -> str:
     llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.3, api_key=api_key)
     messages = [
         SystemMessage(content="You are a helpful teacher."),
         HumanMessage(content=f"""
-Create {number} high-quality flashcards.
+Create {n} high-quality flashcards.
 
 Rules:
 - Mix conceptual and factual questions
@@ -202,19 +136,14 @@ A: answer
 
 Content:
 {content}
-""")
+"""),
     ]
-    response = llm.invoke(messages)
-    return response.content
+    return llm.invoke(messages).content
 
-# --------------------------------------------------
-# Parse
-# --------------------------------------------------
-def parse_flashcards(text):
-    cards = []
-    lines = [l.strip() for l in text.split("\n") if l.strip()]
-    current = {}
-    for line in lines:
+
+def parse_flashcards(text: str) -> list[dict]:
+    cards, current = [], {}
+    for line in (l.strip() for l in text.split("\n") if l.strip()):
         if line.startswith("Q:"):
             if current.get("q") and current.get("a"):
                 cards.append(current)
@@ -226,233 +155,171 @@ def parse_flashcards(text):
     return cards
 
 
-# timer
-def next_card(action):
-    status[idx] = action
-    if idx < len(cards)-1:
-        st.session_state.idx += 1
-        st.session_state.flip = False
-        st.session_state.start_time = time.time()  # 🔥 reset timer
-
-def power():
-    if "status" in st.session_state and st.session_state.status:
-        status = st.session_state.status
-
-        known = list(status.values()).count("known")
-        revision = list(status.values()).count("revision")
-        skip = list(status.values()).count("skip")
-
-        total = len(st.session_state.cards) if "cards" in st.session_state else 0
-
-        return 0 + (10 * known)
-
-    return 0
-
-# --------------------------------------------------
-# Main UI
-# --------------------------------------------------
-c1, c2, c3 = st.columns(3)
-xp = power()
-c3.metric("Your XP", f"{xp} XP")
+# ── XP helper ─────────────────────────────────────────────────────────────────
+def calc_xp() -> int:
+    return list(st.session_state.status.values()).count("known") * 10
 
 
+# ── Main UI ───────────────────────────────────────────────────────────────────
+xp_col, _, title_col = st.columns([1, 2, 1])
+xp_col.metric("⚡ XP", f"{calc_xp()}")
 st.title("📚 Flashcard Generator")
 
 col1, col2, col3 = st.columns(3)
-
-units     = sorted(set(d["unit"] for d in data))
+units     = sorted({d["unit"] for d in data})
 unit      = col1.selectbox("Unit", units)
-
-topics    = sorted(set(d["topic"] for d in data if d["unit"] == unit))
+topics    = sorted({d["topic"] for d in data if d["unit"] == unit})
 topic     = col2.selectbox("Topic", topics)
-
-subtopics = sorted(set(d["subtopic"] for d in data if d["unit"] == unit and d["topic"] == topic))
+subtopics = sorted({d["subtopic"] for d in data if d["unit"] == unit and d["topic"] == topic})
 subtopic  = col3.selectbox("Subtopic", subtopics)
 
-number = st.slider("Number of Flashcards", min_value=5, max_value=20, value=10, step=1)  # New slider for number of flashcards
-number = int(number)  # Ensure it's an integer for the prompt
-
+number = st.slider("Number of Flashcards", 5, 20, 10)
 st.markdown("---")
 
-# --------------------------------------------------
-# Generate
-# --------------------------------------------------
-if st.button("⚡ Generate Flashcards", use_container_width=True):
+if st.button("⚡ Generate Flashcards", use_container_width=True, type="primary"):
     if not GROQ_API_KEY:
-        st.warning("Please enter your Groq API key in the sidebar.")
+        st.warning("Enter your Groq API key in the sidebar.")
     else:
-        with st.spinner("Generating flashcards..."):
-            query   = f"{topic} {subtopic}"
-            content = retrieve_content(collection, embed_model, query, unit, topic, subtopic)
+        with st.spinner("Generating flashcards…"):
+            content = retrieve_content(f"{topic} {subtopic}", unit, topic, subtopic)
             if not content.strip():
                 st.error("No matching content found for this selection.")
             else:
                 try:
-                    raw   = generate_flashcards(content, GROQ_API_KEY)
+                    raw   = generate_flashcards(content, number, GROQ_API_KEY)
                     cards = parse_flashcards(raw)
                     if not cards:
                         st.error("Could not parse flashcards. Try again.")
                     else:
-                        st.session_state.cards  = cards
-                        st.session_state.idx    = 0
-                        st.session_state.flip   = False
-                        st.session_state.status = {}
+                        st.session_state.cards          = cards
+                        st.session_state.idx            = 0
+                        st.session_state.flip           = False
+                        st.session_state.status         = {}
+                        st.session_state.quiz_completed = False
+                        st.session_state.start_time     = time.time()
+                        st.rerun()
                 except Exception as e:
                     st.error(f"LLM error: {e}")
 
-# --------------------------------------------------
-# Display Flashcards
-# --------------------------------------------------
-if "cards" in st.session_state and st.session_state.cards:
+
+# ── Flashcard Display ─────────────────────────────────────────────────────────
+if st.session_state.cards and not st.session_state.quiz_completed:
     cards  = st.session_state.cards
     idx    = st.session_state.idx
-    flip   = st.session_state.flip
     status = st.session_state.status
     card   = cards[idx]
 
     st.markdown("---")
-    st.subheader(f"Card {idx+1} / {len(cards)}")
-    st.progress((idx + 1) / len(cards))
+    st.progress((idx + 1) / len(cards), text=f"Card {idx+1} / {len(cards)}")
 
-
-    with st.container():
-        if not flip:
-            c1, c2 = st.columns([1, 4])
-
-
-            if len(card["q"]) > 0:
-                # c1.markdown("**Question**")
-            # c2.markdown(f"### {idx + 1} / {len(cards)}")
-                c1.markdown(f"### Question {idx + 1} of {len(cards)}")
-            
-
-                st.markdown(f"### {card['q']}")
-            # st.markdown(f"### {card['q']}")
-
+    # Card face
+    with st.container(border=True):
+        if not st.session_state.flip:
+            st.markdown(f"#### ❓ Question {idx+1}")
+            st.markdown(f"### {card['q']}")
             if st.button("🔄 Reveal Answer", use_container_width=True):
                 st.session_state.flip = True
                 st.rerun()
         else:
-            st.markdown("**Answer**")
+            st.markdown("#### ✅ Answer")
             st.markdown(f"### {card['a']}")
             if st.button("🔄 Show Question", use_container_width=True):
                 st.session_state.flip = False
                 st.rerun()
 
+    # Rating buttons
     st.markdown("**How well did you know this?**")
-    c1, c2, c3 = st.columns(3)
+    r1, r2, r3 = st.columns(3)
 
-    def next_card(action):
-
+    def next_card(action: str):
         st.session_state.status[idx] = action
         if idx < len(cards) - 1:
             st.session_state.idx  += 1
             st.session_state.flip  = False
+        st.rerun()
 
-    if c1.button("✅ I Know", use_container_width=True):
-        next_card("known");    st.rerun()
+    if r1.button("✅ I Know",   use_container_width=True): next_card("known")
+    if r2.button("🔁 Revision", use_container_width=True): next_card("revision")
+    if r3.button("⏭ Skip",     use_container_width=True): next_card("skip")
 
-    if c2.button("🔁 Revision", use_container_width=True):
-        next_card("revision"); st.rerun()
-
-    if c3.button("⏭ Skip", use_container_width=True):
-        next_card("skip");     st.rerun()
-
+    # Navigation
     n1, n2 = st.columns(2)
     if n1.button("← Previous", use_container_width=True, disabled=(idx == 0)):
         st.session_state.idx  -= 1
         st.session_state.flip  = False
         st.rerun()
-    
     if n2.button("Next →", use_container_width=True, disabled=(idx == len(cards) - 1)):
         st.session_state.idx  += 1
         st.session_state.flip  = False
         st.rerun()
 
+    st.markdown("---")
+    if st.button("📊 Submit & See Results", use_container_width=True, type="primary"):
+        st.session_state.quiz_completed = True
+        st.session_state.time_taken     = time.time() - st.session_state.start_time
+        st.rerun()
 
-    if "quiz_completed" not in st.session_state:
-        st.session_state.quiz_completed = False 
 
-    if st.button("Submit", use_container_width=True):
-
-        end_time = time.time()
-        time_taken = end_time - st.session_state.start_time 
-
-        # st.stop()  # Stop interactions to show results
-        st.session_state.quiz_completed = True  # 🔥 lock system
-        st.success(f"⏱ Time taken: {time_taken:.2f} seconds")
-        
-        st.markdown("--Thank you--")
-
-      
-        if xp > 100:
-            st.success("🔥 Pro Learner")
-        elif xp > 50:
-            st.info("🚀 Improving Fast")
-        else:
-            st.warning("📚 Keep Practicing")
-
-       
-
-    
-# --------------------------------------------------
-# Dashboard
-# --------------------------------------------------
-if st.session_state.get("status"):
-    status = st.session_state.status
-    total  = len(st.session_state.cards)
+# ── Results Dashboard ─────────────────────────────────────────────────────────
+if st.session_state.quiz_completed and st.session_state.cards:
+    status   = st.session_state.status
+    cards    = st.session_state.cards
+    total    = len(cards)
     known    = list(status.values()).count("known")
     revision = list(status.values()).count("revision")
     skip     = list(status.values()).count("skip")
+    score    = ((known * 2 + revision) / (total * 2)) * 100 if total else 0
+    xp       = calc_xp()
 
     st.markdown("---")
-    st.subheader("📊 Dashboard")
+    st.subheader("📊 Results")
 
-    c1, c2, c3 = st.columns(3)
-    # c1.metric("✅ Known",    f"{known}/{total}")
-    # c2.metric("🔁 Revision", f"{revision}/{total}")
-    # c3.metric("⏭ Skipped",  f"{skip}/{total}")
-    
-    c1.metric("✅ Known",    f"{known}")
-    c2.metric("🔁 Revision", f"{revision}")
-    c3.metric("⏭ Skipped",  f"{skip}")
+    time_taken = st.session_state.get("time_taken", 0)
+    st.info(f"⏱ Time taken: {time_taken:.1f}s")
 
-    c1.metric("Known %", f"{(known/total)*100:.0f}%")
-    c2.metric("Revision %", f"{(revision/total)*100:.0f}%")
-    c3.metric("Skipped %", f"{(skip/total)*100:.0f}%")
-
-    # st.success('you have scored')
-    st.markdown("---")
+    # Score summary
     with st.container(border=True):
-        c1, c2 ,c3 = st.columns(3)
-        
-        c1.metric("Score", f"{((known*2 + revision) / (total*2))*100:.0f}%")
-        c2.metric("Skipped %", f"{(skip/total)*100:.0f}%")
-        c3.metric("Total Cards", f"{known + revision + skip}/{total}")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("✅ Known",    known)
+        c2.metric("🔁 Revision", revision)
+        c3.metric("⏭ Skipped",  skip)
+        c4.metric("⚡ XP",       f"{xp}")
 
+    with st.container(border=True):
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Score",        f"{score:.0f}%")
+        c2.metric("Known %",      f"{(known/total)*100:.0f}%" if total else "0%")
+        c3.metric("Cards Done",   f"{known + revision + skip}/{total}")
 
-    score = ((known*2 + revision) / (total*2)) * 100
-
+    # Feedback
     if score > 80:
-        st.success("Excellent Performance 🚀")
+        st.success("🚀 Excellent Performance!")
     elif score > 50:
-        st.info("Good, but needs improvement")
+        st.info("👍 Good, keep going!")
     else:
-        if revision > known:
-            st.warning("You need more revision in this topic!")
-        st.error("Focus more on revision")
+        st.error("📚 Focus more on revision.")
 
-
-    if st.button("🔄 Reset Progress", use_container_width=True):
-        st.session_state.status = {}
-        st.session_state.idx    = 0
-        st.session_state.flip   = False
-        st.rerun()
-    elif st.button("📁 New Selection", use_container_width=True):
-        del st.session_state.cards
-        st.session_state.idx    = 0
-        st.session_state.flip   = False
-        st.session_state.status = {}
-        st.rerun()
+    if xp > 100:
+        st.success("🔥 Pro Learner")
+    elif xp > 50:
+        st.info("🚀 Improving Fast")
     else:
-        st.info("Use the buttons above to reset or choose a new topic.")
+        st.warning("📚 Keep Practicing")
+
+    st.markdown("---")
+    b1, b2 = st.columns(2)
+    if b1.button("🔄 Reset Progress", use_container_width=True):
+        st.session_state.status         = {}
+        st.session_state.idx            = 0
+        st.session_state.flip           = False
+        st.session_state.quiz_completed = False
+        st.session_state.start_time     = time.time()
+        st.rerun()
+
+    if b2.button("📁 New Topic", use_container_width=True):
+        for key in ["cards", "status", "quiz_completed"]:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.session_state.idx   = 0
+        st.session_state.flip  = False
+        st.rerun()
