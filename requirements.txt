@@ -1,10 +1,10 @@
 streamlit==1.32.0
-chromadb
-sentence-transformers
-langchain-groq
-langchain-core
-python-dotenv
 pandas
 requests
 pypdf
+python-dotenv
+langchain-groq
+langchain-core
+chromadb
+sentence-transformers
 protobuf>=4.21.0
