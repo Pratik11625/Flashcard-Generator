@@ -11,7 +11,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Flashcard Generator", page_icon="📚", layout="centered")
-Set PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+Set PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION="python"
 # ── Session State Defaults ────────────────────────────────────────────────────
 for key, default in {
     "start_time"     : time.time(),
