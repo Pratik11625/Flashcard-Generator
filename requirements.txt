@@ -7,3 +7,4 @@ pandas
 numpy
 requests
 pillow
+protoc >= 3.19.0
